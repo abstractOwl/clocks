@@ -35,7 +35,7 @@ class LamportClockNode(Node):
         self.clock += 1
         print "[*] Node %s: Sending clock message <%d>" \
                 % (self.name, self.clock)
-        other.receive(self.clock)
+        other.receive(self)
 
     def receive(self, other):
         tmp = self.clock
@@ -55,7 +55,7 @@ class VectorClockNode(Node):
         self.clock[self.name] += 1
         print "[*] Node %s: Sending clock message <%s>" \
                 % (self.name, self.clock)
-        other.receive(self.clock)
+        other.receive(self)
 
     def receive(self, other):
         tmp = self.clock
