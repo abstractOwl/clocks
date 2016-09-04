@@ -1,118 +1,110 @@
 #!/usr/bin/env python
-"""
-Simulation of Lamport clocks.
-"""
+""" Simulation of various clock algorithms in distributed systems. """
 
-class Node(object):
-    """ Represents a node with a Lamport clock. """
+import sys
 
-    def __init__(self, name):
-        self.clock = 0
-        self.name = name
+from node import LamportClockNode
+from node import VectorClockNode
 
-    def send(self, other):
+USAGE = """Commands:
+  add [<a>...] - Adds node(s) to the network
+  list         - Lists all nodes and their clock values
+  send <a> <b> - Sends a message from node a to b
+  quit         - Exits
+  ?            - Prints this message"""
+
+class Clocks(object):
+    """ Runs the Clock simulation. """
+
+    def __init__(self):
+        self.nodes = {}
+
+    def add(self, new_nodes, clock_type):
+        """ Adds new node(s) to the network.
+
+        @param {list} new_nodes - List of new nodes to create
+        @param {string} clock_type - Type of node to create
         """
-        Sends a message containing this node's clock value to another node.
+        for name in new_nodes:
+            print "[*] Added node %s" % name
+            self.nodes[name] = self.new_node(clock_type, name)
 
-        @param {Node} other - The other node to send to
+    @staticmethod
+    def new_node(clock_type, name):
+        """ Utility function to create a new node.
+
+        @param {string} clock_type - Type of node to create
+        @param {string} name - Name of node to create
         """
-        self.clock += 1
-        print "[*] Node %s: Sending clock message (%d)" \
-                % (self.name, self.clock)
-        other.receive(self.clock)
-
-    def receive(self, clock):
-        """
-        Receives a clock value from another node and updates the clock value of
-        this node.
-
-        @param {number} clock - The numeric clock value of the other node
-        """
-        tmp = self.clock
-        self.clock = max(self.clock, clock) + 1
-        print "[*] Node %s: Receiving clock message (%d->%d)" \
-                % (self.name, tmp, self.clock)
-
-
-def add(nodes, new_nodes):
-    """ Adds new node(s) to the network.
-
-    @param {dict} nodes - Network of nodes
-    @param {list} new_nodes - List of new nodes to create
-    """
-    for node in new_nodes:
-        print "[*] Added node %s" % node
-        nodes[node] = Node(node)
-
-def list_nodes(nodes):
-    """ Lists nodes in the network.
-
-    @param {dict} nodes - Network of nodes
-    """
-    print "[*] Listing nodes..."
-    for node in nodes:
-        print "[*] Node %s (clock: %d)" % (node, nodes[node].clock)
-
-def print_help():
-    """ Prints help message. """
-    print "Commands: "
-    print "  add [<a>...] - Adds node(s) to the network"
-    print "  list         - Lists all nodes and their clock values"
-    print "  send <a> <b> - Sends a message from node a to b"
-    print "  quit         - Exits"
-    print "  ?            - Prints this message"
-
-def send(nodes, params):
-    """ Sends a message from a node to another node.
-
-    @param {dict} nodes - Network of nodes
-    @params {list} params - List containing (sender, receiver) pair
-    """
-
-    if len(params) != 2:
-        print '[!] ERROR: Expected 2 params, got %d' % len(params)
-        return
-
-    sender, receiver = params
-    if not(sender in nodes and receiver in nodes):
-        print '[!] ERROR: Invalid node(s) (%s, %s)' % (sender, receiver)
-        return
-
-    nodes[sender].send(nodes[receiver])
-
-def cmds():
-    """ Prints commands and returns input. """
-    return raw_input('[?] Enter command (add/list/send/quit/?): ')
-
-def main():
-    """ The entrypoint function. """
-    nodes = {}
-    while True:
-        param_list = cmds().split()
-
-        if len(param_list) < 1:
-            continue
-
-        print
-
-        cmd = param_list.pop(0)
-
-        if cmd == 'add':
-            add(nodes, param_list)
-        elif cmd == 'list':
-            list_nodes(nodes)
-        elif cmd == 'send':
-            send(nodes, param_list)
-        elif cmd == '?':
-            print_help()
-        elif cmd == 'quit':
-            break
+        if clock_type == 'lamport':
+            return LamportClockNode(name)
+        elif clock_type == 'vector':
+            return VectorClockNode(name)
         else:
-            print '[!] ERROR: Unrecognized command'
+            raise 'Invalid node type'
 
-        print
+    def list_nodes(self):
+        """ Lists nodes in the network. """
+        print "[*] Listing %d nodes..." % len(self.nodes)
+        for node in self.nodes:
+            print "[*] Node %s <%s>" % (node, self.nodes[node].clock)
 
+    @staticmethod
+    def print_help():
+        """ Prints help message. """
+        print USAGE
+
+    def send(self, params):
+        """ Sends a message from a node to another node.
+
+        @params {list} params - List containing (sender, receiver) pair
+        """
+        if len(params) != 2:
+            print '[!] ERROR: Expected 2 params, got %d' % len(params)
+            return
+
+        sender, receiver = params
+        if not(sender in self.nodes and receiver in self.nodes):
+            print '[!] ERROR: Invalid node(s) (%s, %s)' % (sender, receiver)
+            return
+
+        self.nodes[sender].send(self.nodes[receiver])
+
+    @staticmethod
+    def cmds():
+        """ Prints commands and returns input. """
+        return raw_input('[?] Enter command (add/list/send/quit/?): ')
+
+    def run(self, clock_type):
+        """ Runs the simulation REPL. """
+        while True:
+            param_list = self.cmds().split()
+            if len(param_list) < 1:
+                continue
+
+            print
+
+            cmd = param_list.pop(0)
+            if cmd == 'add':
+                self.add(param_list, clock_type)
+            elif cmd == 'list':
+                self.list_nodes()
+            elif cmd == 'send':
+                self.send(param_list)
+            elif cmd == '?':
+                self.print_help()
+            elif cmd == 'quit':
+                break
+            else:
+                print '[!] ERROR: Unrecognized command'
+
+            print
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) < 2 or sys.argv[1] not in ['lamport', 'vector']:
+        CLOCK_TYPE = 'lamport'
+    else:
+        CLOCK_TYPE = sys.argv[1]
+
+    Clocks().run(CLOCK_TYPE)
 
